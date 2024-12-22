@@ -98,7 +98,11 @@ app.post('/register', async (req, res) => {
     const hash = await bcrypt.hash(req.body.password, 10);
 
     // Insert username and hashed password into the 'users' table
-    await db.none('INSERT INTO users(username, password) VALUES($1, $2)', [req.body.username, hash]);
+    //await db.none('INSERT INTO users(username, password) VALUES($1, $2)', [req.body.username, hash]);
+    await db.none(
+      'INSERT INTO users(username, password, preferred_platform) VALUES($1, $2, $3)', 
+      [req.body.username, hash, req.body.preferred_platform]
+    );
 
     // Redirect to GET /login route after successful registration
     res.redirect('/login');
@@ -181,13 +185,21 @@ app.get('/logout', (req, res) => {
 });
 
 /*creating profile page route*/
-app.get('/profile', (req, res) => {
+app.get('/profile', async (req, res) => {
   if (!req.session.user) {
     return res.status(401).send('Not authenticated');
   }
   try {
-    res.render('pages/profile', { username: req.session.user.username });
-    //  res.should.be.html; // Expecting a HTML response
+    // res.render('pages/profile', { username: req.session.user.username });
+    // Fetch the user's preferred platform from the database
+    const user = await db.one('SELECT preferred_platform FROM users WHERE username = $1', [req.session.user.username]);
+
+    // Render the profile page with the username and preferred platform
+    res.render('pages/profile', {
+      username: req.session.user.username,
+      preferred_platform: user.preferred_platform
+    });
+
   } catch (err) {
     console.error('Profile error:', err);
     res.status(500).send('Internal Server Error');
